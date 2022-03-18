@@ -30,10 +30,10 @@ local sCurrentCommand
 
 //
 // This opens a connection to the server
-// serverAddress is the host name or IP address of the SMTP server
-// serverPort is the port the server is listening on (usually 25, 465, 587)
-// useSSL a boolean whether to use a secure connection or not
-// callback the long id of the LiveCode object that is going to handle the callbacks from the library
+//  serverAddress is the host name or IP address of the SMTP server
+//  serverPort is the port the server is listening on (usually 25, 465, 587)
+//  useSSL a boolean whether to use a secure connection or not
+//  callback the long id of the LiveCode object that is going to handle the callbacks from the library
 // example: SMTPConnect "smtp.example.org", 587, FALSE, the long of stack "smtpCallbacks"
 //
 on SMTPConnect serverAddress, serverPort, useSSL, callback
