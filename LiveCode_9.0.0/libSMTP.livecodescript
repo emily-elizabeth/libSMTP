@@ -81,8 +81,14 @@ on libSMTPGotData sender, data
             if (sCurrentCommand[sender] = "EHLO") then
                local authMethods
                put libSMTPFindAuthMethods(sSMTPReply[sender]) into authMethods
-               dispatch function "SMTPRequestAuthenticationMethod" to sCallback[sender] with sender, authMethods
-               libSMTPWrite sender, "AUTH" && the result, kFiveMinutes
+               if (authMethods is not EMPTY) then
+                  dispatch function "SMTPRequestAuthenticationMethod" to sCallback[sender] with sender, authMethods
+                  if (the result = FALSE) then
+                     dispatch "SMTPLoggedIn" to sCallback[sender] with sender
+                  else
+                     libSMTPWrite sender, "AUTH" && the result, kFiveMinutes
+                  end if
+               end if
             else if (sCurrentCommand[sender] = "MAIL") then
                libSMTPGetNextRecipient sender
             else if (sCurrentCommand[sender] = "RCPT") then
