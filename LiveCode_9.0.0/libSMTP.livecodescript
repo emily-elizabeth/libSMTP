@@ -28,6 +28,14 @@ local sSMTPReply
 local sCurrentCommand
 
 
+//
+// This opens a connection to the server
+// serverAddress is the host name or IP address of the SMTP server
+// serverPort is the port the server is listening on (usually 25, 465, 587)
+// useSSL a boolean whether to use a secure connection or not
+// callback the long id of the LiveCode object that is going to handle the callbacks from the library
+// example: SMTPConnect "smtp.example.org", 587, FALSE, the long of stack "smtpCallbacks"
+//
 on SMTPConnect serverAddress, serverPort, useSSL, callback
    local sender
    put serverAddress & ":" & serverPort & "|libSMTP" into sender
@@ -157,14 +165,26 @@ on libSMTPGetNextRecipient sender
 end libSMTPGetNextRecipient
    
    
-   function libSMTPFindAuthMethods data
+function libSMTPFindAuthMethods data
    local results
    repeat for each line tLine in data
       if (word 1 of tLine = "250-AUTH") then
          put word 2 to -1 of tLine into results
+         exit repeat
       else if (word 2 of tLine = "AUTH") then
          put word 3 to -1 of tLine into results
+         exit repeat
       end if
    end repeat
    return results
 end libSMTPFindAuthMethods
+
+
+on socketError sender, errorString
+   dispatch "SMTPError" to sCallback[sender] with sender, errorString
+end socketError
+
+
+on socketTimeout sender
+   dispatch "SMTPSocketTimeout" to sCallback[sender] with sender
+end socketTimeout
