@@ -1,11 +1,61 @@
-﻿script "libSMTP"
+﻿script "com.emilyelizabeth.library.libsmtp"
+
+on extensionInitialize
+   if the target is not me then pass extensionInitialize
+   set the _ideoverride of me to true
+   insert the script of me into back
+end extensionInitialize
+
+
+on extensionFinalize
+   if the target is not me then pass extensionFinalize
+   remove the script of me from back
+end extensionFinalize
+
+/**
+Type: library
+
+Title: libSMTP
+
+Author: Emily Elizabeth
+
+Version: 1.0.0
+
+SVGIcon: 
+
+Summary: SMTP library for LiveCode
+
+Description:
+SMTP library for LiveCode which is event based.
+
+Tags: smtp
+*/
+
 --- public handlers
-// SMTPConnect
 // SMTPSend
 // SMTPDisconnect
 
 
 --- callbacks
+/**
+Name: SMTPConnected
+
+Type: message
+
+Syntax: SMTPConnected <pParam1>, <pParam2>
+
+Summary: TODO.
+
+Parameters:
+pParam1: TODO.
+
+pParam2: TODO.
+
+Example: TODO
+
+Description: TODO
+
+**/
 // SMTPConnected
 // SMTPRequestAuthenticationMethod()
 // SMTPLoggedIn
@@ -27,145 +77,179 @@ local sCallback
 local sSMTPReply
 local sCurrentCommand
 
+/**
+Syntax: SMTPConnect <pServerAddress>, <pServerPort>, <pUseSSL>, <pCallback>
 
-//
-// This opens a connection to the server
-//  serverAddress is the host name or IP address of the SMTP server
-//  serverPort is the port the server is listening on (usually 25, 465, 587)
-//  useSSL a boolean whether to use a secure connection or not
-//  callback the long id of the LiveCode object that is going to handle the callbacks from the library
-// example: SMTPConnect "smtp.example.org", 587, FALSE, the long of stack "smtpCallbacks"
-//
-on SMTPConnect serverAddress, serverPort, useSSL, callback
-   local sender
-   put serverAddress & ":" & serverPort & "|libSMTP" into sender
-   put EMPTY into sSMTPReply[sender]
-   put "CONN" into sCurrentCommand[sender]
-   put callback into sCallback[sender]
-   if (useSSL) then
-      open secure socket to sender with message "libSMTPRead"
+Summary: Opens a connection to the server.
+
+Parameters:
+pServerAddress: The host name or IP address of the SMTP server.
+
+pSserverPort: The port the server is listening on (usually 25, 465, 587).
+
+pUseSSL: A boolean whether to use a secure connection or not.
+
+pCallback: long id of the LiveCode object that is going to handle the callbacks from the library.
+
+Example: SMTPConnect "smtp.example.org", 587, false, the long of stack "smtpCallbacks"
+
+Description:
+Use the <SMTPConnect> command to opens a connection to the server.
+
+**/
+on SMTPConnect pServerAddress, pServerPort, pUseSSL, pCallback
+   local tSender
+   
+   put pServerAddress & ":" & pServerPort & "|libSMTP" into tSender
+   put EMPTY into sSMTPReply[tSender]
+   put "CONN" into sCurrentCommand[tSender]
+   put pCallback into sCallback[tSender]
+   
+   if (pUseSSL) then
+      open secure socket to tSender with message "__libSMTPRead"
    else
-      open socket to sender with message "libSMTPRead"
+      open socket to tSender with message "__libSMTPRead"
    end if
 end SMTPConnect
 
 
-on SMTPDisconnect sender
-   libSMTPWrite sender, "QUIT", kFiveMinutes
+on SMTPDisconnect pSender
+   __libSMTPWrite pSender, "QUIT", kFiveMinutes
 end SMTPDisconnect
 
 
-on SMTPSend sender
-   dispatch function "SMTPRequestSender" to sCallback[sender] with sender
+on SMTPSend pSender
+   dispatch function "SMTPRequestSender" to sCallback[pSender] with pSender
+   
    if (the result is not EMPTY) then
-      libSMTPWrite sender, "MAIL FROM:<" & the result & ">", kFiveMinutes
+      __libSMTPWrite pSender, "MAIL FROM:<" & the result & ">", kFiveMinutes
    end if
 end SMTPSend
 
 
-on libSMTPRead sender
-   read from socket sender until CRLF with message "libSMTPGotData"
-end libSMTPRead
+on __libSMTPRead pSender
+   read from socket pSender until CRLF with message "__libSMTPGotData"
+end __libSMTPRead
 
 
-on libSMTPGotData sender, data
-   put data after sSMTPReply[sender]
-   if (char 4 of data = "-") then  // multi-line reply
-      read from socket sender until CRLF with message "libSMTPGotData"
+on __libSMTPGotData pSender, pData
+   local tAuthMethods
+   
+   put pData after sSMTPReply[pSender]
+   
+   if (char 4 of pData = "-") then  // multi-line reply
+      read from socket pSender until CRLF with message "__libSMTPGotData"
    else
-      switch (char 1 to 3 of sSMTPReply[sender])
+      switch (char 1 to 3 of sSMTPReply[pSender])
+         
          case 220  // <domain> service ready
-            dispatch "SMTPConnected" to sCallback[sender] with sender, sSMTPReply[sender]
-            libSMTPWrite sender, "EHLO" && hostAddress(sender), kFiveMinutes
+            dispatch "SMTPConnected" to sCallback[pSender] with pSender, sSMTPReply[pSender]
+            __libSMTPWrite pSender, "EHLO" && hostAddress(pSender), kFiveMinutes
             break
+            
          case 221  // <domain> service closing transmission channel
-            close socket sender
-            dispatch "SMTPDisconnected" to sCallback[sender] with sender
+            close socket pSender
+            dispatch "SMTPDisconnected" to sCallback[pSender] with pSender
             break
+            
          case 235  // password successful
-            dispatch "SMTPLoggedIn" to sCallback[sender] with sender
+            dispatch "SMTPLoggedIn" to sCallback[pSender] with pSender
             break
+            
          case 250  // requested mail action okay, completed
-            if (sCurrentCommand[sender] = "EHLO") then
-               local authMethods
-               put libSMTPFindAuthMethods(sSMTPReply[sender]) into authMethods
-               if (authMethods is not EMPTY) then
-                  dispatch function "SMTPRequestAuthenticationMethod" to sCallback[sender] with sender, authMethods
-                  if (the result = FALSE) then
-                     dispatch "SMTPLoggedIn" to sCallback[sender] with sender
-                  else
-                     libSMTPWrite sender, "AUTH" && the result, kFiveMinutes
+            switch
+               case (sCurrentCommand[pSender] = "EHLO")                  
+                  put __libSMTPFindAuthMethods(sSMTPReply[pSender]) into tAuthMethods
+                  
+                  if (tAuthMethods is not EMPTY) then
+                     dispatch function "SMTPRequestAuthenticationMethod" to sCallback[pSender] with pSender, tAuthMethods
+                     
+                     if (the result = FALSE) then
+                        dispatch "SMTPLoggedIn" to sCallback[pSender] with pSender
+                     else
+                        __libSMTPWrite pSender, "AUTH" && the result, kFiveMinutes
+                     end if
                   end if
-               end if
-            else if (sCurrentCommand[sender] = "MAIL") then
-               libSMTPGetNextRecipient sender
-            else if (sCurrentCommand[sender] = "RCPT") then
-               libSMTPGetNextRecipient sender
-            else if (sCurrentCommand[sender] = ".") then
-               dispatch "SMTPMessageSent" to sCallback[sender] with sender
-            end if
+                  break
+                  
+               case (sCurrentCommand[pSender] = "MAIL") 
+                  __libSMTPGetNextRecipient pSender
+                  break
+                  
+               case (sCurrentCommand[pSender] = "RCPT")
+                  __libSMTPGetNextRecipient pSender
+                  break
+                  
+               case (sCurrentCommand[pSender] = ".")
+                  dispatch "SMTPMessageSent" to sCallback[pSender] with pSender
+                  break
+            end switch
             break
+            
          case 251
-            if (sCurrentCommand[sender] = "RCPT") then
-               dispatch "SMTPInvalidRecipient" to sCallback[sender] with sender
-               libSMTPGetNextRecipient sender
+            if (sCurrentCommand[pSender] = "RCPT") then
+               dispatch "SMTPInvalidRecipient" to sCallback[pSender] with pSender
+               __libSMTPGetNextRecipient pSender
             end if
             break
+            
          case 354  // start mail input; end with <CRLF>.<CRLF>
-            if (sCurrentCommand[sender] = "DATA") then
-               libSMTPGetNextDataLine sender
+            if (sCurrentCommand[pSender] = "DATA") then
+               __libSMTPGetNextDataLine pSender
             end if
             break
+            
          case 554  // transaction failed
-            dispatch "SMTPError" to sCallback[sender] with sender, sSMTPReply[sender]
+            dispatch "SMTPError" to sCallback[pSender] with pSender, sSMTPReply[pSender]
             break
+            
          default
-            put sSMTPReply[sender]
+            -- put sSMTPReply[pSender]
             close socket (line 1 of the openSockets)
       end switch
    end if
-end libSMTPGotData
+end __libSMTPGotData
 
 
-on libSMTPWrite sender, data, timeout
-   put EMPTY into sSMTPReply[sender]
-   put word 1 of data into sCurrentCommand[sender]
+on __libSMTPWrite pSender, data, timeout
+   put EMPTY into sSMTPReply[pSender]
+   put word 1 of data into sCurrentCommand[pSender]
    set the socketTimeoutInterval to timeout
-   write data & CRLF to socket sender with message "libSMTPRead"
-end libSMTPWrite
+   write data & CRLF to socket pSender with message "__libSMTPRead"
+end __libSMTPWrite
 
 
-on libSMTPWriteDataLine sender, data, timeout
+on __libSMTPWriteDataLine sender, data, timeout
    set the socketTimeoutInterval to timeout
    if (data = ".") then
-      write ".." & CRLF to socket sender with message "libSMTPGetNextDataLine"
+      write ".." & CRLF to socket sender with message "__libSMTPGetNextDataLine"
    else
-      write data & CRLF to socket sender with message "libSMTPGetNextDataLine"
+      write data & CRLF to socket sender with message "__libSMTPGetNextDataLine"
    end if
-end libSMTPWriteDataLine
+end __libSMTPWriteDataLine
 
 
-on libSMTPGetNextDataLine sender
+on __libSMTPGetNextDataLine sender
    dispatch function "SMTPRequestDataLine" to sCallback[sender] with sender
    if (the result is FALSE) then
-      libSMTPWrite sender, ".", kTenMinutes
+      __libSMTPWrite sender, ".", kTenMinutes
    else
-      libSMTPWriteDataLine sender, the result, kThreeMinutes
+      __libSMTPWriteDataLine sender, the result, kThreeMinutes
    end if
-end libSMTPGetNextDataLine
+end __libSMTPGetNextDataLine
 
 
-on libSMTPGetNextRecipient sender
+on __libSMTPGetNextRecipient sender
    dispatch function "SMTPRequestRecipient" to sCallback[sender] with sender
    if (the result is FALSE) then
-      libSMTPWrite sender, "DATA", kTwoMinutes
+      __libSMTPWrite sender, "DATA", kTwoMinutes
    else
-      libSMTPWrite sender, "RCPT TO:<" & the result & ">", kFiveMinutes
+      __libSMTPWrite sender, "RCPT TO:<" & the result & ">", kFiveMinutes
    end if
-end libSMTPGetNextRecipient
+end __libSMTPGetNextRecipient
    
    
-function libSMTPFindAuthMethods data
+private function __libSMTPFindAuthMethods data
    local results
    repeat for each line tLine in data
       if (word 1 of tLine = "250-AUTH") then
@@ -177,7 +261,7 @@ function libSMTPFindAuthMethods data
       end if
    end repeat
    return results
-end libSMTPFindAuthMethods
+end __libSMTPFindAuthMethods
 
 
 on socketError sender, errorString

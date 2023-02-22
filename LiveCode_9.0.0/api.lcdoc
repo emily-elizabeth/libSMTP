@@ -1,0 +1,44 @@
+Name: SMTPConnected
+
+Type: message
+
+Syntax: SMTPConnected <pParam1>, <pParam2>
+
+Summary: TODO.
+
+Parameters: 
+
+pParam1: TODO.
+
+pParam2: TODO.
+
+Example: TODO
+
+Description: TODO
+
+
+Name: SMTPConnect
+
+Type: command
+
+Syntax: SMTPConnect <pServerAddress>, <pServerPort>, <pUseSSL>, <pCallback>
+
+Summary: Opens a connection to the server.
+
+Parameters: 
+
+pServerAddress: The host name or IP address of the SMTP server.
+
+pSserverPort: The port the server is listening on (usually 25, 465, 587).
+
+pUseSSL: A boolean whether to use a secure connection or not.
+
+pCallback: long id of the LiveCode object that is going to handle the callbacks from the library.
+
+Example: SMTPConnect "smtp.example.org", 587, false, the long of stack "smtpCallbacks"
+
+Description: Use the <SMTPConnect> command to opens a connection to the server.
+
+
+
+
