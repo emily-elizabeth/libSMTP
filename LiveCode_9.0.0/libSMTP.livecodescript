@@ -17,7 +17,7 @@ Type: library
 
 Title: libSMTP
 
-Author: Emily Elizabeth
+Author: Emily-Elizabeth
 
 Version: 1.0.0
 

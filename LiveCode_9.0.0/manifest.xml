@@ -1,10 +1,8 @@
 <package version="0.0">
-  <name />
-  <title />
-  <author />
-  <version />
-  <type />
-  <platforms />
-  <os />
+  <name>network.smtp</name>
+  <title>SMTP Library</title>
+  <author>Emily-Elizabeth Howard</author>
+  <version>1.0.0</version>
+  <type>library</type>
   <license>community</license>
 </package>
